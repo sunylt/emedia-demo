@@ -1,0 +1,19 @@
+{
+  "name": "emedia-demo",
+  "version": "1.0.0",
+  "description": "demo for emediaSDK",
+  "main": "./src/index.js",
+  "scripts": {
+    "start": "parcel index.html --https",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "demo",
+    "emedia"
+  ],
+  "author": "10666779@qq.com",
+  "license": "ISC",
+  "devDependencies": {
+    "parcel-bundler": "^1.12.5"
+  }
+}
