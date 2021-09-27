@@ -6,6 +6,7 @@ const appId = "827212690214645824"
 const appKey = "Y25Sak9nbnVlN1pLv3Bm5FCJBquhPsL5csn06k3AOlQ"
 let userSig = ""
 let localStream = null
+let localSharedDesktopSteam = null
 
 localStorage.setItem("emedia_username", username)
 
@@ -60,12 +61,34 @@ const service = window.service = new emedia.Service({
 				}else{
 					$("#media_" + stream.memId).srcObject = mediaStream
 				}
+			}else{
+				if(!$("#desktop_" + stream.id)){
+					const videoTag = document.createElement("video")
+					videoTag.id = "desktop_" + stream.id
+					videoTag.autoplay = true
+					videoTag.playsInline = true
+					$("#list").appendChild(videoTag)
+				}
+				$("#desktop_" + stream.id).srcObject = mediaStream
 			}
 		},
 
 		// 某成员的流退出（包含本地流、音视频流，共享桌面等）
 		onRemoveStream(stream) {
 			console.log("stream remove>>>>", stream)
+
+			// 桌面共享的流单独处理，因为不会触发onRemoveMember
+			if(stream.type == 1){
+
+				// 清楚缓存的本地共享流
+				if(stream.located()){
+					localSharedDesktopSteam = null;
+				}
+				
+				const tag = $("#desktop_" + stream.id)
+				tag.srcObject = null
+				$("#list").removeChild(tag)
+			}
 		},
 
 		onNotifyEvent(evt) {
@@ -147,4 +170,42 @@ $("#changeCamera").addEventListener("click", () => {
 
 $("#voff").addEventListener("click", () => {
 	localStream && service.voff(localStream, !localStream.voff)
+})
+
+$('#shareDesktop').addEventListener("click", () => {
+
+	// 无开启的会议
+	if(!localStream){
+		return
+	}
+
+	// 配置共享桌面选项
+	const shareStream = new service.ShareDesktopPubstream({
+    voff: 0,
+    aoff: 0,
+    isAgentShare: true,
+    ext: {},
+    screenOptions: ['screen', 'window', 'tab']
+  })
+
+	// 打开设备并推流
+	service.openUserMedia(shareStream).then(() => {
+		service.push(shareStream, localShareStream => {
+
+			const deskMediaStream = localShareStream.getLocalMediaStream()
+
+			// 监听桌面共享被取消
+			deskMediaStream.getVideoTracks()[0].onended = function(){
+				service.hungup(localShareStream.id)
+			}
+			localSharedDesktopSteam = localShareStream
+		}, (
+
+		) => {})
+	})
+
+})
+
+$("#stopShareDesktop").addEventListener("click", () => {
+	localSharedDesktopSteam && service.hungup(localSharedDesktopSteam.id)
 })
