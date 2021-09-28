@@ -22,7 +22,7 @@ function swithVideoToMain(videoTag){
 	// 交换id 跟 srcObject 即可
 	const videoMainStream = $videoMain.srcObject
 	const mainId = $videoMain.id
-	$vide0.srcObject = videoTag.srcObject
+	$videoMain.srcObject = videoTag.srcObject
 	$videoMain.id = videoTag.id
 	videoTag.srcObject = videoMainStream
 	videoTag.id = mainId
