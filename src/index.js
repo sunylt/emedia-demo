@@ -6,12 +6,52 @@ const appId = "827212690214645824"
 const appKey = "Y25Sak9nbnVlN1pLv3Bm5FCJBquhPsL5csn06k3AOlQ"
 let userSig = ""
 let localStream = null
-let localSharedDesktopSteam = null
+let localSharedDesktopStream = null
+const cachedStreams =  window.cachedStreams = {}
+
+const $videoMain = $("#ui-video-main video") // 主视频
+const $videoList = $('#ui-video-list') // 成员列表
 
 localStorage.setItem("emedia_username", username)
 
 function $(selector) {
 	return document.querySelector(selector)
+}
+
+function swithVideoToMain(videoTag){
+	// 交换id 跟 srcObject 即可
+	const videoMainStream = $videoMain.srcObject
+	const mainId = $videoMain.id
+	$vide0.srcObject = videoTag.srcObject
+	$videoMain.id = videoTag.id
+	videoTag.srcObject = videoMainStream
+	videoTag.id = mainId
+}
+
+
+function createMiniVideoPalyer(id){
+	const videoTag = document.createElement("video")
+	videoTag.id = id
+	videoTag.autoplay = true
+	videoTag.playsInline = true
+	videoTag.addEventListener("click", () => {
+		swithVideoToMain(videoTag)
+	})
+	$videoList.appendChild(videoTag)
+}
+
+function removeVideoPlayer(id){
+	const tag = $("#" + id)
+	if($videoMain.id === id){ // 如果被移除的id在主画面 把主画面替换成localStream
+		const playerForLocal = $("#" + localStream.id)
+		playerForLocal.srcObject = null
+		$videoList.removeChild(playerForLocal)
+		$videoMain.id = localStream.id
+		$videoMain.srcObject = localStream.getMediaStream()
+	}else{
+		tag.srcObject = null
+		$videoList.removeChild(tag)
+	}
 }
 
 const emedia = window.emedia = new EmediaSDK({
@@ -25,69 +65,69 @@ const service = window.service = new emedia.Service({
 		onMeExit(...rest) {
 			console.log('触发onMeExit，原因:', ...rest)
 			localStream = null
-			$("#localStream").srcObject = null
-			$("#list").innerHTML = ""
+			$videoMain.srcObject = null
+			$videoMain.id = ""
+			$videoList.innerHTML = ""
+			cachedStreams = {}
 		},
 
 		// 流的增加，仅用于统计人数，不处理流
 		onAddStream(stream) {
 			console.log("stream add>>>>", stream)
+			// 针对桌面共享单独处理
+			if(stream.type == 1){
+				createMiniVideoPalyer(stream.id)
+			}
 		},
 
 		onAddMember(member) {
 			console.log("member add>>>>", member)
-			const videoTag = document.createElement("video")
-			videoTag.id = "media_" + member.id
-			videoTag.autoplay = true
-			videoTag.playsInline = true
-			$("#list").appendChild(videoTag)
+			// 成员播放器创建
+			createMiniVideoPalyer("media_" + member.id)
 		},
 
 		onRemoveMember(member) {
 			console.log("member remove>>>>", member)
-			const tag = $("#media_" + member.id)
-			tag.srcObject = null
-			$("#list").removeChild(tag)
+			removeVideoPlayer("media_" + member.id)
 		},
 
 		// 某成员的流退出（包含本地流、音视频流，共享桌面等）
 		onUpdateStream(stream, updateObj) {
 			console.log("stream update>>>>", stream)
 			const mediaStream = stream.getMediaStream()
+			cachedStreams[stream.id] = stream
 			if(stream.type == 0){
 				if(stream.located()){
 					localStream = stream
-					$("#localStream").srcObject = mediaStream
+					if(!$videoMain.id){
+						$videoMain.srcObject = mediaStream
+						$videoMain.id = stream.id
+					}else{
+						$("#" + stream.id).srcObject = mediaStream
+					}
 				}else{
 					$("#media_" + stream.memId).srcObject = mediaStream
 				}
 			}else{
-				if(!$("#desktop_" + stream.id)){
-					const videoTag = document.createElement("video")
-					videoTag.id = "desktop_" + stream.id
-					videoTag.autoplay = true
-					videoTag.playsInline = true
-					$("#list").appendChild(videoTag)
-				}
-				$("#desktop_" + stream.id).srcObject = mediaStream
+				$("#" + stream.id).srcObject = mediaStream
 			}
 		},
 
 		// 某成员的流退出（包含本地流、音视频流，共享桌面等）
 		onRemoveStream(stream) {
 			console.log("stream remove>>>>", stream)
+			cachedStreams[stream.id] = null
+			delete cachedStreams[stream.id]
 
 			// 桌面共享的流单独处理，因为不会触发onRemoveMember
 			if(stream.type == 1){
 
 				// 清除缓存的本地共享流
 				if(stream.located()){
-					localSharedDesktopSteam = null;
+					localSharedDesktopStream = null;
 				}
 
-				const tag = $("#desktop_" + stream.id)
-				tag.srcObject = null
-				$("#list").removeChild(tag)
+				removeVideoPlayer(stream.id)
 			}
 		},
 
@@ -165,7 +205,7 @@ $("#destroyRoom").addEventListener("click", () => {
 })
 
 $("#changeCamera").addEventListener("click", () => {
-	localStream && service.changeCamera(localStream.id)
+	localStream && service.switchMobileCamera(localStream.id)
 })
 
 $("#voff").addEventListener("click", () => {
@@ -198,7 +238,7 @@ $('#shareDesktop').addEventListener("click", () => {
 			deskMediaStream.getVideoTracks()[0].onended = function(){
 				service.hungup(localShareStream.id)
 			}
-			localSharedDesktopSteam = localShareStream
+			localSharedDesktopStream = localShareStream
 		}, (
 
 		) => {})
@@ -207,5 +247,5 @@ $('#shareDesktop').addEventListener("click", () => {
 })
 
 $("#stopShareDesktop").addEventListener("click", () => {
-	localSharedDesktopSteam && service.hungup(localSharedDesktopSteam.id)
+	localSharedDesktopStream && service.hungup(localSharedDesktopStream.id)
 })
