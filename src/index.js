@@ -80,11 +80,11 @@ const service = window.service = new emedia.Service({
 			// 桌面共享的流单独处理，因为不会触发onRemoveMember
 			if(stream.type == 1){
 
-				// 清楚缓存的本地共享流
+				// 清除缓存的本地共享流
 				if(stream.located()){
 					localSharedDesktopSteam = null;
 				}
-				
+
 				const tag = $("#desktop_" + stream.id)
 				tag.srcObject = null
 				$("#list").removeChild(tag)
