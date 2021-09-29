@@ -157,7 +157,7 @@ function joinRtcRoom(roomId) {
 	getTicket(roomId).then(result => {
 
 		// 设置要加入房间ticket
-		service.setup(result.ticket, { role: '' })
+		service.setup(result.ticket, { role: '', avatar: '', nickname: ["张三", "李四", "王五", "K6", "RS", "TT", "QW"][Math.floor(Math.random() * 7)] })
 
 		// 加入房间并打开设备推流
 		service.join(() => {
