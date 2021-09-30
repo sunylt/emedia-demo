@@ -8,6 +8,7 @@ let userSig = ""
 let localStream = null
 let localSharedDesktopStream = null
 const cachedStreams =  window.cachedStreams = {}
+const cachedMembers = window.cachedMembers = {}
 
 const $videoMain = $("#ui-video-main video") // 主视频
 const $videoList = $('#ui-video-list') // 成员列表
@@ -26,6 +27,14 @@ function swithVideoToMain(videoTag){
 	$videoMain.id = videoTag.id
 	videoTag.srcObject = videoMainStream
 	videoTag.id = mainId
+	videoTag.title = getUsername(mainId)
+}
+
+function getUsername(id){
+	const _id = id.replace("media_", "")
+	const name = cachedMembers[_id] ? cachedMembers[_id].name : cachedStreams[_id].owner.name
+	console.log(_id, name);
+	return name
 }
 
 
@@ -84,11 +93,13 @@ const service = window.service = new emedia.Service({
 			console.log("member add>>>>", member)
 			// 成员播放器创建
 			createMiniVideoPalyer("media_" + member.id)
+			cachedMembers[member.id] = member
 		},
 
 		onRemoveMember(member) {
 			console.log("member remove>>>>", member)
 			removeVideoPlayer("media_" + member.id)
+			delete cachedMembers[member.id]
 		},
 
 		// 某成员的流退出（包含本地流、音视频流，共享桌面等）
