@@ -7,8 +7,9 @@ const appKey = "Y25Sak9nbnVlN1pLv3Bm5FCJBquhPsL5csn06k3AOlQ"
 let userSig = ""
 let localStream = null
 let localSharedDesktopStream = null
-const cachedStreams =  window.cachedStreams = {}
-const cachedMembers = window.cachedMembers = {}
+let currentMainScreenItem = null
+let cachedStreams =  window.cachedStreams = {}
+let cachedMembers = window.cachedMembers = {}
 
 const $videoMain = $("#ui-video-main video") // 主视频
 const $videoList = $('#ui-video-list') // 成员列表
@@ -19,48 +20,52 @@ function $(selector) {
 	return document.querySelector(selector)
 }
 
-function swithVideoToMain(videoTag){
+function swithVideoToMain(item){
 	// 交换id 跟 srcObject 即可
-	const videoMainStream = $videoMain.srcObject
-	const mainId = $videoMain.id
-	$videoMain.srcObject = videoTag.srcObject
-	$videoMain.id = videoTag.id
-	videoTag.srcObject = videoMainStream
-	videoTag.id = mainId
-	videoTag.title = getUsername(mainId)
+	// const videoMainStream = $videoMain.srcObject
+	// const mainId = $videoMain.id
+	// $videoMain.srcObject = videoTag.srcObject
+	// $videoMain.id = videoTag.id
+	// videoTag.srcObject = videoMainStream
+	// videoTag.id = mainId
+	// videoTag.title = getUsername(mainId)
+	if(currentMainScreenItem){
+		currentMainScreenItem.className = ""
+	}
+	item.className = "mainScreen"
+	currentMainScreenItem = item;
+
 }
 
-function getUsername(id){
-	const _id = id.replace("media_", "")
-	const name = cachedMembers[_id] ? cachedMembers[_id].name : cachedStreams[_id].owner.name
-	console.log(_id, name);
-	return name
-}
-
-
-function createMiniVideoPalyer(id){
+function createMiniVideoPalyer(id, name){
+	if($('#' + id)){
+		return $('#' + id)
+	}
+	const item = document.createElement("div")
 	const videoTag = document.createElement("video")
+	const nameTag = document.createElement("span")
 	videoTag.id = id
 	videoTag.autoplay = true
 	videoTag.playsInline = true
-	videoTag.addEventListener("click", () => {
-		swithVideoToMain(videoTag)
+	nameTag.innerText = name
+	item.addEventListener("click", () => {
+		swithVideoToMain(item)
 	})
-	$videoList.appendChild(videoTag)
+	item.appendChild(videoTag)
+	item.appendChild(nameTag)
+	$videoList.appendChild(item)
+	return item
 }
 
 function removeVideoPlayer(id){
-	const tag = $("#" + id)
-	if($videoMain.id === id){ // 如果被移除的id在主画面 把主画面替换成localStream
-		const playerForLocal = $("#" + localStream.id)
-		playerForLocal.srcObject = null
-		$videoList.removeChild(playerForLocal)
-		$videoMain.id = localStream.id
-		$videoMain.srcObject = localStream.getMediaStream()
-	}else{
-		tag.srcObject = null
-		$videoList.removeChild(tag)
+	const mainItem= document.querySelector('.mainScreen video')
+  const videoTag = $("#" + id)
+	if(!videoTag) return
+	if(mainItem && mainItem.id === id){ // 如果被移除的id在主画面 把主画面替换成localStream
+		const localUserPlayer = $("#" + localStream.id).parentElement
+		swithVideoToMain(localUserPlayer)
 	}
+	$videoList.removeChild(videoTag.parentElement)
 }
 
 const emedia = window.emedia = new EmediaSDK({
@@ -74,31 +79,34 @@ const service = window.service = new emedia.Service({
 		onMeExit(...rest) {
 			console.log('触发onMeExit，原因:', ...rest)
 			localStream = null
-			$videoMain.srcObject = null
-			$videoMain.id = ""
+			currentMainScreenItem = null
 			$videoList.innerHTML = ""
 			cachedStreams = {}
+
+			console.log("reset all...")
 		},
 
 		// 流的增加，仅用于统计人数，不处理流
 		onAddStream(stream) {
 			console.log("stream add>>>>", stream)
+			const nickname = stream.located() ? "我" : stream.owner.ext.nickname || stream.owner.name
 			// 针对桌面共享单独处理
 			if(stream.type == 1){
-				createMiniVideoPalyer(stream.id)
+				createMiniVideoPalyer(stream.id, nickname + "的桌面")
 			}
 		},
 
 		onAddMember(member) {
 			console.log("member add>>>>", member)
+			const name = member.ext.nickname || member.nickName || member.name || member.memName 
 			// 成员播放器创建
-			createMiniVideoPalyer("media_" + member.id)
+			createMiniVideoPalyer(member.id, name)
 			cachedMembers[member.id] = member
 		},
 
 		onRemoveMember(member) {
 			console.log("member remove>>>>", member)
-			removeVideoPlayer("media_" + member.id)
+			removeVideoPlayer(member.id)
 			delete cachedMembers[member.id]
 		},
 
@@ -110,14 +118,13 @@ const service = window.service = new emedia.Service({
 			if(stream.type == 0){
 				if(stream.located()){
 					localStream = stream
-					if(!$videoMain.id){
-						$videoMain.srcObject = mediaStream
-						$videoMain.id = stream.id
-					}else{
-						$("#" + stream.id).srcObject = mediaStream
+					const item = createMiniVideoPalyer(stream.id, `我(${stream.owner.ext.nickname || stream.owner.name})`)
+					$("#" + stream.id).srcObject = mediaStream
+					if(!currentMainScreenItem){
+						swithVideoToMain(item)
 					}
 				}else{
-					$("#media_" + stream.memId).srcObject = mediaStream
+					$("#" + stream.memId).srcObject = mediaStream
 				}
 			}else{
 				$("#" + stream.id).srcObject = mediaStream
@@ -155,7 +162,7 @@ function getUserSig(userId) {
 }
 
 function getTicket(roomId) {
-	return fetch(`${serverUrl}/emedia/enter_room?app_id=${appId}&&user_sig=${userSig}&room_id=${roomId}&user_id=${username}`).then(res => res.json())
+	return fetch(`${serverUrl}/emedia/enter_room?app_id=${appId}&user_sig=${userSig}&room_id=${roomId}&user_id=${username}&_=${+new Date}`).then(res => res.json())
 }
 
 function joinRtcRoom(roomId) {
@@ -168,7 +175,7 @@ function joinRtcRoom(roomId) {
 	getTicket(roomId).then(result => {
 
 		// 设置要加入房间ticket
-		service.setup(result.ticket, { role: '', avatar: '', nickname: ["张三", "李四", "王五", "K6", "RS", "TT", "QW"][Math.floor(Math.random() * 7)] })
+		service.setup(result.ticket, { role: '', avatar: '', nickname: ["AAAA", "BBB", "王五", "CCC", "DDD", "TTT", "FFF"][Math.floor(Math.random() * 7)] })
 
 		// 加入房间并打开设备推流
 		service.join(() => {
@@ -226,7 +233,7 @@ $("#voff").addEventListener("click", () => {
 $('#shareDesktop').addEventListener("click", () => {
 
 	// 无开启的会议
-	if(!localStream){
+	if(!localStream || localSharedDesktopStream){
 		return
 	}
 
