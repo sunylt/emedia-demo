@@ -86,16 +86,6 @@ const service = window.service = new emedia.Service({
 			console.log("reset all...")
 		},
 
-		// 流的增加，仅用于统计人数，不处理流
-		onAddStream(stream) {
-			console.log("stream add>>>>", stream)
-			const nickname = stream.located() ? "我" : stream.owner.ext.nickname || stream.owner.name
-			// 针对桌面共享单独处理
-			if(stream.type == 1){
-				createMiniVideoPalyer(stream.id, nickname + "的桌面")
-			}
-		},
-
 		onAddMember(member) {
 			console.log("member add>>>>", member)
 			const name = member.ext.nickname || member.nickName || member.name || member.memName 
@@ -110,24 +100,38 @@ const service = window.service = new emedia.Service({
 			delete cachedMembers[member.id]
 		},
 
+
+		// 流的增加，仅用于统计人数，不处理流
+		onAddStream(stream) {
+			console.log("stream add>>>>", stream)
+			const nickname = stream.located() ? "我" : stream.owner.ext.nickname || stream.owner.name
+			// 针对桌面共享单独处理
+			if(stream.type == 1){
+				createMiniVideoPalyer(stream.id, nickname + "的桌面")
+			}
+		},
+
 		// 某成员的流退出（包含本地流、音视频流，共享桌面等）
 		onUpdateStream(stream, updateObj) {
 			console.log("stream update>>>>", stream)
 			const mediaStream = stream.getMediaStream()
 			cachedStreams[stream.id] = stream
+			
+			// 针对桌面共享单独处理
+			if(stream.type == 1){
+				$("#" + stream.id).srcObject = mediaStream
+			}
 			if(stream.type == 0){
 				if(stream.located()){
 					localStream = stream
-					const item = createMiniVideoPalyer(stream.id, `我(${stream.owner.ext.nickname || stream.owner.name})`)
-					$("#" + stream.id).srcObject = mediaStream
+					const item = createMiniVideoPalyer("localstream", `我(${stream.owner.ext.nickname || stream.owner.name})`)
+					$("#localstream").srcObject = mediaStream
 					if(!currentMainScreenItem){
 						swithVideoToMain(item)
 					}
 				}else{
 					$("#" + stream.memId).srcObject = mediaStream
 				}
-			}else{
-				$("#" + stream.id).srcObject = mediaStream
 			}
 		},
 
@@ -175,7 +179,7 @@ function joinRtcRoom(roomId) {
 	getTicket(roomId).then(result => {
 
 		// 设置要加入房间ticket
-		service.setup(result.ticket, { role: '', avatar: '', nickname: ["AAAA", "BBB", "王五", "CCC", "DDD", "TTT", "FFF"][Math.floor(Math.random() * 7)] })
+		service.setup(result.ticket, { role: '', avatar: '', nickname: username })
 
 		// 加入房间并打开设备推流
 		service.join(() => {
@@ -223,7 +227,40 @@ $("#destroyRoom").addEventListener("click", () => {
 })
 
 $("#changeCamera").addEventListener("click", () => {
-	localStream && service.switchMobileCamera(localStream.id)
+		let videoOptions = null
+
+		if(!localStream) return
+		
+		if(localStream.constaints.video === true) {
+			videoOptions = { facingMode: { exact: "environment" } }
+		}else if(typeof localStream.constaints.video === "object"){
+			if(typeof localStream.constaints.video.facingMode  === "object"){
+				videoOptions = { facingMode: "user"}
+			}else{
+				videoOptions = { facingMode: { exact: "environment" } }
+			}
+		}
+
+		const	_pubS = new service.AVPubstream({
+			constaints: {
+				audio: true,
+				video: videoOptions
+			},
+			aoff: 0,
+			voff: 0,
+			name: 'userSwitch'
+		})
+
+		service.openUserMedia(_pubS).then(function () {
+			service.push(_pubS, function(stream){
+				service.hungup(localStream.id)
+			}, function(){
+				alert('推流失败')
+			})
+		}, function(){
+			alert('摄像头切换失败')
+		})
+
 })
 
 $("#voff").addEventListener("click", () => {

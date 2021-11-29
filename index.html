@@ -8,18 +8,19 @@
 	<style>
 		body{
 			font: 14px arial;
+			margin: 0;
+			padding: 0;
 		}
 		button{
 			margin-bottom: 10px;
 		}
 
 		#ui-video-container{
-			width: 560px;
+			width: 100%;
 			height: 420px;
-			margin: 0 5px;
 			border: 1px solid #333;
 			background-color: #333;
-			position: absolute;
+			position: relative;
 		}
 
 		#ui-video-title{
@@ -37,12 +38,15 @@
 			position: absolute;
 			top: 0px;
 			right: 0px;
+			height: 100%;
 		}
 
 		#ui-video-list div{
 			position: relative;
 			z-index: 2;
-			margin: 10px 10px 0 0;
+			margin: 0 10px 10px 0;
+			background-color: greenyellow;
+			border: 1px solid greenyellow;
 		}
 
 		#ui-video-list div span{
@@ -63,12 +67,14 @@
 
 		#ui-video-list .mainScreen{
 			position: absolute;
-    	width: 560px;
-    	height: 420px;
+    	width: 100vw;
+    	height: 100%;
     	top: 0;
     	right: 0;
 			margin: 0;
 			z-index: 1;
+			background-color: #000;
+			border: none;
 		}
 
 		#ui-video-list .mainScreen video{
@@ -91,15 +97,14 @@
 	</style>
 </head>
 <body>
-	<div>
+	<div style="padding:5px;">
 		<div>房间名：<input type="text" placeholder="房间名" value="testroom_001" /></div><br />
-		<div><button id="joinRoom">加入</button>   <button id="exitRoom">自己退出</button> </div> 
+		<div><button id="joinRoom">加入</button>   <button id="exitRoom">自己退出</button> <button id="destroyRoom">解散房间</button></div> 
 	</div>
 	<div id="ui-video-container">
 		<div id="ui-video-list">
 		</div>
 		<div id="ui-video-bar">
-			<button id="destroyRoom">解散房间</button>
 			<button id="changeCamera">切换摄像头</button>
 			<button id="voff">关闭/打开图像</button>
 			<button id="shareDesktop">共享桌面</button>
