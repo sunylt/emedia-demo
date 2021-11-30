@@ -8,8 +8,6 @@ let userSig = ""
 let localStream = null
 let localSharedDesktopStream = null
 let currentMainScreenItem = null
-let cachedStreams =  window.cachedStreams = {}
-let cachedMembers = window.cachedMembers = {}
 
 const $videoMain = $("#ui-video-main video") // 主视频
 const $videoList = $('#ui-video-list') // 成员列表
@@ -21,14 +19,6 @@ function $(selector) {
 }
 
 function swithVideoToMain(item){
-	// 交换id 跟 srcObject 即可
-	// const videoMainStream = $videoMain.srcObject
-	// const mainId = $videoMain.id
-	// $videoMain.srcObject = videoTag.srcObject
-	// $videoMain.id = videoTag.id
-	// videoTag.srcObject = videoMainStream
-	// videoTag.id = mainId
-	// videoTag.title = getUsername(mainId)
 	if(currentMainScreenItem){
 		currentMainScreenItem.className = ""
 	}
@@ -58,13 +48,8 @@ function createMiniVideoPalyer(id, name){
 }
 
 function removeVideoPlayer(id){
-	const mainItem= document.querySelector('.mainScreen video')
   const videoTag = $("#" + id)
 	if(!videoTag) return
-	if(mainItem && mainItem.id === id){ // 如果被移除的id在主画面 把主画面替换成localStream
-		const localUserPlayer = $("#" + localStream.id).parentElement
-		swithVideoToMain(localUserPlayer)
-	}
 	$videoList.removeChild(videoTag.parentElement)
 }
 
@@ -81,7 +66,6 @@ const service = window.service = new emedia.Service({
 			localStream = null
 			currentMainScreenItem = null
 			$videoList.innerHTML = ""
-			cachedStreams = {}
 
 			console.log("reset all...")
 		},
@@ -91,13 +75,11 @@ const service = window.service = new emedia.Service({
 			const name = member.ext.nickname || member.nickName || member.name || member.memName 
 			// 成员播放器创建
 			createMiniVideoPalyer(member.id, name)
-			cachedMembers[member.id] = member
 		},
 
 		onRemoveMember(member) {
 			console.log("member remove>>>>", member)
 			removeVideoPlayer(member.id)
-			delete cachedMembers[member.id]
 		},
 
 
@@ -115,7 +97,6 @@ const service = window.service = new emedia.Service({
 		onUpdateStream(stream, updateObj) {
 			console.log("stream update>>>>", stream)
 			const mediaStream = stream.getMediaStream()
-			cachedStreams[stream.id] = stream
 			
 			// 针对桌面共享单独处理
 			if(stream.type == 1){
@@ -124,11 +105,10 @@ const service = window.service = new emedia.Service({
 			if(stream.type == 0){
 				if(stream.located()){
 					localStream = stream
-					const item = createMiniVideoPalyer("localstream", `我(${stream.owner.ext.nickname || stream.owner.name})`)
-					$("#localstream").srcObject = mediaStream
-					if(!currentMainScreenItem){
-						swithVideoToMain(item)
+					if(!$('#localstream')){
+						createMiniVideoPalyer("localstream", '我')
 					}
+					$("#localstream").srcObject = mediaStream
 				}else{
 					$("#" + stream.memId).srcObject = mediaStream
 				}
@@ -138,8 +118,6 @@ const service = window.service = new emedia.Service({
 		// 某成员的流退出（包含本地流、音视频流，共享桌面等）
 		onRemoveStream(stream) {
 			console.log("stream remove>>>>", stream)
-			cachedStreams[stream.id] = null
-			delete cachedStreams[stream.id]
 
 			// 桌面共享的流单独处理，因为不会触发onRemoveMember
 			if(stream.type == 1){
@@ -169,6 +147,24 @@ function getTicket(roomId) {
 	return fetch(`${serverUrl}/emedia/enter_room?app_id=${appId}&user_sig=${userSig}&room_id=${roomId}&user_id=${username}&_=${+new Date}`).then(res => res.json())
 }
 
+function publishMediaStream(constaints, success, error){
+	const	_pubS = new service.AVPubstream({
+		constaints,
+		aoff: 0,
+		voff: 0,
+		name: 'video'
+	})
+	service.openUserMedia(_pubS).then(function () {
+		service.push(_pubS, function(stream){
+			success && success()
+		}, function(err){
+			error && error(err)
+		})
+	}, function(err){
+		error && error(err)
+	})
+}
+
 function joinRtcRoom(roomId) {
 
 	if(!roomId){
@@ -184,20 +180,9 @@ function joinRtcRoom(roomId) {
 		// 加入房间并打开设备推流
 		service.join(() => {
 			// 流配置
-			const pubS = new service.AVPubstream({
-				constaints: {
-					audio: true,
-					video: true
-				},
-				aoff: 0,
-				voff: 0,
-				name: 'video'
-			})
-
-			// 打开设备
-			service.openUserMedia(pubS).then(() => {
-				// 推流
-				service.push(pubS, () => {}, () => {})
+			publishMediaStream({
+				audio: true,
+				video: true
 			})
 		})
 	})
@@ -226,39 +211,62 @@ $("#destroyRoom").addEventListener("click", () => {
 	service.exit(true)
 })
 
+// $('#userCamera').addEventListener("click", () => {
+// 	if(!localStream) return
+
+// 	service.hungup(localStream.id)
+// 	publishMediaStream({
+// 		audio: true,
+// 		video: true
+// 	})
+// })
+
+// $('#backCamera').addEventListener("click", () => {
+// 	if(!localStream) return
+
+// 	service.hungup(localStream.id)
+// 	publishMediaStream({
+// 		audio: true,
+// 		video: { facingMode: { exact: "environment" } }
+// 	}, () => {
+
+// 	}, () => {
+// 		publishMediaStream({
+// 			audio: true,
+// 			video: true
+// 		})
+// 	})
+// })
+
 $("#changeCamera").addEventListener("click", () => {
 		let videoOptions = null
 
-		if(!localStream) return
+		if(!localStream || localStream.voff) return
 		
 		if(localStream.constaints.video === true) {
 			videoOptions = { facingMode: { exact: "environment" } }
 		}else if(typeof localStream.constaints.video === "object"){
 			if(typeof localStream.constaints.video.facingMode  === "object"){
-				videoOptions = { facingMode: "user"}
+				videoOptions = true
 			}else{
 				videoOptions = { facingMode: { exact: "environment" } }
 			}
 		}
 
-		const	_pubS = new service.AVPubstream({
-			constaints: {
-				audio: true,
-				video: videoOptions
-			},
-			aoff: 0,
-			voff: 0,
-			name: 'userSwitch'
-		})
+		// 先结束当前流释放出设备 否则有的终端无法直接切换调用其它硬件
+		service.hungup(localStream.id)
 
-		service.openUserMedia(_pubS).then(function () {
-			service.push(_pubS, function(stream){
-				service.hungup(localStream.id)
-			}, function(){
-				alert('推流失败')
+		publishMediaStream({
+			audio: localStream.constaints.audio,
+			video: videoOptions
+		}, () => {
+			console.log("摄像头切换成功")
+		}, err => {
+			console.log("摄像头切换失败", err)
+			publishMediaStream({
+				audio: localStream.constaints.audio,
+				video: localStream.constaints.video
 			})
-		}, function(){
-			alert('摄像头切换失败')
 		})
 
 })
