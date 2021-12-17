@@ -39,7 +39,7 @@ const service = new emedia.Service({
 		// 退出，服务端强制退出，进入会议失败，sdk重连失败等 均会调用到此处
 		onMeExit(reason) {
 			log.warn('触发onMeExit，原因:', ...rest)
-
+			// reset all
 		},
 
 		// 流的增加，仅用于统计人数，不处理流
@@ -58,7 +58,8 @@ const service = new emedia.Service({
 		// 更新 一个流 （音视频流，共享桌面等）。
 		// 可能是 断网后，重新获取到远端媒体流，或者对方静音或关闭摄像头
 		onUpdateStream(stream, updateObj) {
-			
+			// 播放流
+			// videoTag.srcObject = stream.getMediaStream()
 		},
 
 		// 某人 取消 一个流 （音视频流，共享桌面等）（包含本地流）
@@ -94,10 +95,10 @@ fetch(`${serverUrl}/emedia/enter_room?app_id=${appId}&&user_sig=${userSig}&room_
 
 // 3、设置ticket并加入房间
 service.setup(result.ticket, { role: '' })
-service.join(() => {
+service.join(function() {
 
 	// 配置加入流
-	var pubS = service.AVPubstream({
+	var pubS = new service.AVPubstream({
 		constaints: {
 			audio: true,
 			video: true
@@ -113,13 +114,17 @@ service.join(() => {
 	// 打开设备并推流
 	service.openUserMedia(pubS).then(function() {
 		service.push(pubS, function() {
-				
+				// 推流成功
 		}, function() {
-			
+			// 推流失败
 		})
 	})
 		
+},
+function(){
+	// join error
 })
+
 ```
 
 ### 1.4 退出（解散）会议
