@@ -34,7 +34,7 @@ function createMiniVideoPalyer(id, name){
 	const item = document.createElement("div")
 	const videoTag = document.createElement("video")
 	const nameTag = document.createElement("span")
-	videoTag.id = id
+	item.id = id
 	videoTag.autoplay = true
 	videoTag.playsInline = true
 	nameTag.innerText = name
@@ -53,7 +53,7 @@ function createMiniVideoPalyer(id, name){
 function removeVideoPlayer(id){
   const videoTag = $("#" + id)
 	if(!videoTag) return
-	$videoList.removeChild(videoTag.parentElement)
+	$videoList.removeChild(videoTag)
 }
 
 const emedia = window.emedia = new EmediaSDK({
@@ -69,7 +69,7 @@ const service = window.service = new emedia.Service({
 			localStream = null
 			currentMainScreenItem = null
 			$videoList.innerHTML = ""
-
+			$('#header').style.display = "flex"
 			console.log("reset all...")
 		},
 
@@ -90,6 +90,9 @@ const service = window.service = new emedia.Service({
 		onAddStream(stream) {
 			console.log("stream add>>>>", stream)
 			const nickname = stream.located() ? "我" : stream.owner.ext.nickname || stream.owner.name
+			if(stream.located() && stream.type == 0){
+				$('#header').style.display = "none" // 自己的流进来
+			}
 			// 针对桌面共享单独处理
 			if(stream.type == 1){
 				createMiniVideoPalyer(stream.id, nickname + "的桌面")
@@ -103,7 +106,7 @@ const service = window.service = new emedia.Service({
 			
 			// 针对桌面共享单独处理
 			if(stream.type == 1){
-				$("#" + stream.id).srcObject = mediaStream
+				$("#" + stream.id + " video").srcObject = mediaStream
 			}
 			if(stream.type == 0){
 				if(stream.located()){
@@ -111,9 +114,9 @@ const service = window.service = new emedia.Service({
 					if(!$('#localstream')){
 						createMiniVideoPalyer("localstream", '我')
 					}
-					$("#localstream").srcObject = mediaStream
+					$("#localstream video").srcObject = mediaStream
 				}else{
-					$("#" + stream.memId).srcObject = mediaStream
+					$("#" + stream.memId + " video").srcObject = mediaStream
 				}
 			}
 		},
@@ -198,7 +201,7 @@ getUserSig(username).then(res => userSig = res)
 $("#joinRoom").addEventListener("click", () => {
 
 	// 自己起个roomId
-	const roomId = document.querySelector("input").value
+	const roomId = document.querySelector("input").value || "room001"
 
 	joinRtcRoom(roomId)
 
@@ -282,6 +285,7 @@ $('#shareDesktop').addEventListener("click", () => {
 
 	// 无开启的会议
 	if(!localStream || localSharedDesktopStream){
+		localSharedDesktopStream && service.hungup(localSharedDesktopStream.id)
 		return
 	}
 
@@ -310,8 +314,4 @@ $('#shareDesktop').addEventListener("click", () => {
 		) => {})
 	})
 
-})
-
-$("#stopShareDesktop").addEventListener("click", () => {
-	localSharedDesktopStream && service.hungup(localSharedDesktopStream.id)
 })
