@@ -137,9 +137,21 @@ const service = window.service = new emedia.Service({
 			}
 		},
 
-		onNotifyEvent(evt) {
-			console.log("event>>>>", evt)
-		}
+		 //各类事件
+     onNotifyEvent: function (evt) {
+      if(evt instanceof emedia.event.ServerRefuseEnter){ //服务端拒绝进入
+      } else if(evt instanceof emedia.event.EnterSuccess){ //进入会议成功
+      } else if(evt instanceof emedia.event.EnterFail){ //进入会议失败
+      } else if(evt instanceof emedia.event.ICERemoteMediaStream) { //成功获取对方媒体数据 如：视频
+      } else if(evt instanceof emedia.event.PushSuccess){ //推流成功。本地打开摄像头并将数据成功发送
+        console.log('evt>>>', evt);
+      } else if(evt instanceof emedia.event.SubSuccess){ //订阅成功，可以看到对方了
+      } else if(evt instanceof emedia.event.PushFail){ //推送失败
+      } else if(evt instanceof emedia.event.SubFail){ //推送成功
+      } else if(evt instanceof emedia.event.ShareDesktopExtensionNotFound){ //共享桌面插件未找到
+      } else if(evt instanceof emedia.event.RemoteControlFail){ //远程控制失败，仅能web端控制sdk端
+      }
+  }
 	}
 })
 
@@ -314,4 +326,9 @@ $('#shareDesktop').addEventListener("click", () => {
 		) => {})
 	})
 
+})
+
+
+$('#record').addEventListener("click", () => {
+  service.startRecord(localStream.id)
 })
